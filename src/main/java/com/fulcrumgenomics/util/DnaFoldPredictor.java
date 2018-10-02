@@ -55,6 +55,19 @@ public class DnaFoldPredictor {
      * @param tm the tm at which the calculations should be performed
      */
     public DnaFoldPredictor(final File viennaRnaInstallDir, final double tm) {
+        this(viennaRnaInstallDir, tm, true);
+    }
+
+    /**
+     * Constructs an instance that has a running copy of ViennaRNA's RNAFold executable behind it
+     * that can then be interactively pushed a new sequence and get back folding information.
+     *
+     * @param viennaRnaInstallDir the parent dir of Vienna RNA's bin, lib, share directories
+     * @param tm the tm at which the calculations should be performed
+     * @param inheritError true to set ViennaRNA to redirect standard error to the calling process' standard error,
+     *                     false otherwise.
+     */
+    public DnaFoldPredictor(final File viennaRnaInstallDir, final double tm, final boolean inheritError) {
         final File binary = new File(viennaRnaInstallDir, "bin/RNAfold");
         final File params = new File(viennaRnaInstallDir, "share/ViennaRNA/dna_mathews2004.par");
         final List<String> args = new ArrayList<>();
@@ -66,7 +79,7 @@ public class DnaFoldPredictor {
 
         try {
             final ProcessBuilder builder = new ProcessBuilder(args);
-            builder.redirectError(ProcessBuilder.Redirect.INHERIT);
+            if (inheritError) builder.redirectError(ProcessBuilder.Redirect.INHERIT);
             this.process = builder.start();
             this.out = new BufferedWriter(new OutputStreamWriter(this.process.getOutputStream()), Defaults.BUFFER_SIZE);
             this.in = new BufferedReader(new InputStreamReader(this.process.getInputStream()), Defaults.BUFFER_SIZE);
