@@ -27,9 +27,10 @@
 
 package com.fulcrumgenomics.util;
 
+import com.fulcrumgenomics.commons.io.AsyncStreamSink;
 import htsjdk.samtools.Defaults;
 import htsjdk.samtools.util.CloserUtil;
-import htsjdk.samtools.util.RuntimeIOException;
+import scala.runtime.BoxedUnit;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -46,6 +47,7 @@ public class DnaFoldPredictor {
     private final Process process;
     private final BufferedWriter out;
     private final BufferedReader in;
+    private final StringWriter err;
 
     /**
      * Constructs an instance that has a running copy of ViennaRNA's RNAFold executable behind it
@@ -83,9 +85,16 @@ public class DnaFoldPredictor {
             this.process = builder.start();
             this.out = new BufferedWriter(new OutputStreamWriter(this.process.getOutputStream()), Defaults.BUFFER_SIZE);
             this.in = new BufferedReader(new InputStreamReader(this.process.getInputStream()), Defaults.BUFFER_SIZE);
+
+            if (inheritError) {
+                this.err = null;
+            } else {
+                this.err = new StringWriter();
+                new AsyncStreamSink(this.process.getErrorStream(), (String s) -> { this.err.write(s); return BoxedUnit.UNIT; });
+            }
         }
         catch (IOException ioe) {
-            throw new RuntimeIOException(ioe);
+            throw buildRuntimeException(ioe);
         }
     }
 
@@ -113,7 +122,7 @@ public class DnaFoldPredictor {
             return new DnaFoldPrediction(seq2, structure, dg);
         }
         catch (IOException ioe) {
-            throw new RuntimeIOException(ioe);
+            throw buildRuntimeException(ioe);
         }
     }
 
@@ -128,6 +137,12 @@ public class DnaFoldPredictor {
     /** Kills the underlying process and makes future calls to predict() invalid. */
     public void close() {
         CloserUtil.close(this.out);
+        if (this.err != null) CloserUtil.close(this.err);
         if (this.process.isAlive()) this.process.destroy();
+    }
+
+    private RuntimeException buildRuntimeException(final IOException ioe) {
+        if (this.err != null) System.err.println(this.err.toString());
+        return new RuntimeException(ioe);
     }
 }
