@@ -23,8 +23,11 @@
  */
 package com.fulcrumgenomics.fastq
 
-import com.fulcrumgenomics.testing.UnitSpec
+import java.nio.file.Files
+import java.util.concurrent.{Callable, Executors, TimeUnit}
+
 import com.fulcrumgenomics.commons.io.Io
+import com.fulcrumgenomics.testing.UnitSpec
 
 object FastqIoTest {
   val someFastq =
@@ -109,7 +112,35 @@ class FastqIoTest extends UnitSpec {
     }
   }
 
-  "FastqWriter" should "write valid records to a file" in {
+  it should "support streaming through pipes" in {
+    val pipe = makeTempFile("pipey.", ".mcpiperton")
+    Files.delete(pipe)
+    val mkfifo = new ProcessBuilder("mkfifo", pipe.toAbsolutePath.toString).start()
+    mkfifo.waitFor(2, TimeUnit.SECONDS) shouldBe true
+    mkfifo.exitValue() shouldBe 0
+
+    // Figure up an executor to pump data into the pipe
+    val exec = Executors.newSingleThreadExecutor()
+    val future = exec.submit(new Callable[Int] {
+      override def call(): Int = {
+        val writer = FastqWriter(pipe)
+        FastqIoTest.someFastqRecords.foreach(writer.write)
+        writer.close()
+        FastqIoTest.someFastqRecords.size
+      }
+    })
+
+    // Then try reading from the pipe
+    val in  = FastqSource(pipe)
+    var count = 0
+    in.foreach { rec =>
+      count += 1
+    }
+    in.close()
+    count shouldBe future.get()
+  }
+
+    "FastqWriter" should "write valid records to a file" in {
     val files = Seq(makeTempFile("some", ".fq"), makeTempFile("some", ".fq.gz"))
     files.foreach(fq => {
       val writer = FastqWriter(fq)
