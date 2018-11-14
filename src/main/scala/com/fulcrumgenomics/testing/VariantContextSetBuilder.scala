@@ -93,7 +93,7 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
                  genotypeAttributes: Map[String,Any] = Map.empty,
                  sampleName: Option[String] = None,
                  phased: Boolean = false,
-                 ad: List[Int] = List.empty
+                 ad: Option[List[Int]],
                 ): this.type = {
     if (!sampleName.forall { sn => this.header.getGenotypeSamples.contains(sn)}) {
       throw new IllegalArgumentException(s"Sample with name $sampleName not found in the VCF header.")
@@ -131,7 +131,7 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
       case gAlleles => new GenotypeBuilder(name, toAlleles(gAlleles, referenceAllele=referenceAllele).asJava)
     }
     genotypeBuilder.phased(phased)
-    genotypeBuilder.AD(ad.toArray)
+    ad.foreach(_ad => genotypeBuilder.AD(_ad.toArray))
     genotypeAttributes.foreach { case (k,v) => genotypeBuilder.attribute(k, v) }
     val genotype = genotypeBuilder.make()
     // check the sample doesn't already exists.
