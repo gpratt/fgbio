@@ -93,7 +93,7 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
                  genotypeAttributes: Map[String,Any] = Map.empty,
                  sampleName: Option[String] = None,
                  phased: Boolean = false,
-                 ad: Option[List[Int]],
+                 ad: Option[List[Int]] = None
                 ): this.type = {
     if (!sampleName.forall { sn => this.header.getGenotypeSamples.contains(sn)}) {
       throw new IllegalArgumentException(s"Sample with name $sampleName not found in the VCF header.")
