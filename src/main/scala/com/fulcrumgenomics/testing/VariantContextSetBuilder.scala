@@ -93,8 +93,7 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
                  genotypeAttributes: Map[String,Any] = Map.empty,
                  sampleName: Option[String] = None,
                  phased: Boolean = false,
-                 ad: Option[List[Int]] = None
-                ): this.type = {
+                 alleleDepth: List[Int] = List.empty): this.type = {
     if (!sampleName.forall { sn => this.header.getGenotypeSamples.contains(sn)}) {
       throw new IllegalArgumentException(s"Sample with name $sampleName not found in the VCF header.")
     }
@@ -104,6 +103,11 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
     if (!genotypeAlleles.forall(a => a == Allele.NO_CALL_STRING || variantAlleles.contains(a))) {
       throw new IllegalArgumentException("A genotype allele not found in variant alleles")
     }
+
+    if (!alleleDepth.nonEmpty && variantAlleles.length != alleleDepth.length) {
+      throw new IllegalArgumentException("If allele depth is set number of variant alleles and allele depth length must be equal")
+    }
+
     val contig          = this.dict.getSequence(refIdx).getSequenceName
     val alleles         = toAlleles(variantAlleles)
     val stop            = VariantContextUtils.computeEndFromAlleles(alleles.asJava, start.toInt, -1)
@@ -131,7 +135,7 @@ class VariantContextSetBuilder(sampleNames: Seq[String] = List("Sample")) extend
       case gAlleles => new GenotypeBuilder(name, toAlleles(gAlleles, referenceAllele=referenceAllele).asJava)
     }
     genotypeBuilder.phased(phased)
-    ad.foreach(_ad => genotypeBuilder.AD(_ad.toArray))
+    if(alleleDepth.nonEmpty) genotypeBuilder.AD(alleleDepth.toArray)
     genotypeAttributes.foreach { case (k,v) => genotypeBuilder.attribute(k, v) }
     val genotype = genotypeBuilder.make()
     // check the sample doesn't already exists.
