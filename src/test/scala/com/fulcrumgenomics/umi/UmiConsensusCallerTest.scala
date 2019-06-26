@@ -27,6 +27,7 @@ package com.fulcrumgenomics.umi
 import com.fulcrumgenomics.bam.api.SamOrder
 import com.fulcrumgenomics.testing.{SamBuilder, UnitSpec}
 import htsjdk.samtools.SAMFileHeader.GroupOrder
+import htsjdk.samtools.SAMReadGroupRecord
 import org.scalatest.OptionValues
 
 class UmiConsensusCallerTest extends UnitSpec with OptionValues {
@@ -56,5 +57,21 @@ class UmiConsensusCallerTest extends UnitSpec with OptionValues {
     UmiConsensusCaller.checkSortOrder(builder.header, "foo.bam", w => warning = Some(w), e => error = Some(e))
     warning shouldBe None
     error.value.indexOf("foo.bam") should be >= 0
+  }
+
+  "outputHeader" should "return correct platform id" in {
+    def buildRg(id: String, sample: String, platform: String): SAMReadGroupRecord = {
+      val rg = new SAMReadGroupRecord(id)
+      rg.setSample(sample)
+      rg.setPlatform(platform)
+      return rg
+    }
+
+    val builder = new SamBuilder(sort=Some(SamOrder.TemplateCoordinate))
+
+    builder.header.addReadGroup(buildRg(id = "B", sample ="Sample", platform = "ILLUMINA"))
+    builder.header.addReadGroup(buildRg(id = "C", sample ="Sample2", platform = "illumina"))
+    val outHeader = UmiConsensusCaller.outputHeader(in=builder.header, readGroupId = "A")
+    outHeader.getReadGroup("A").getPlatform shouldBe "ILLUMINA"
   }
 }
